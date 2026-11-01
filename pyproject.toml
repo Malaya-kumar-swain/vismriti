@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vismriti"
+version = "0.1.0"
+description = "DPDP-ready consent, purpose limitation and right-to-erasure for RAG and AI agents"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Malaya Kumar Swain" }]
+requires-python = ">=3.10"
+dependencies = []
+keywords = ["dpdp", "privacy", "consent", "rag", "llm", "ai-agents", "mcp", "right-to-erasure", "india"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Topic :: Security",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+dev = ["pytest>=8", "mcp>=1.2"]
+
+[project.urls]
+Homepage = "https://github.com/Malaya-kumar-swain/vismriti"
+
+[tool.setuptools.packages.find]
+include = ["vismriti*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
