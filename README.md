@@ -5,7 +5,7 @@
 *Vismriti (विस्मृति) is Sanskrit for "forgetting". Under the DPDP Act, your AI has to learn how.*
 
 [![ci](https://github.com/Malaya-kumar-swain/vismriti/actions/workflows/ci.yml/badge.svg)](https://github.com/Malaya-kumar-swain/vismriti/actions)
-![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-Apache--2.0-green) ![deps](https://img.shields.io/badge/core%20dependencies-0-brightgreen)
+[![PyPI](https://img.shields.io/pypi/v/vismriti)](https://pypi.org/project/vismriti/) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-Apache--2.0-green) ![deps](https://img.shields.io/badge/core%20dependencies-0-brightgreen)
 
 ---
 
@@ -50,6 +50,8 @@ flowchart LR
 ```
 
 ## Quick start
+
+Install the library with `pip install vismriti` (or `pip install "vismriti[mcp]"` for the MCP server). To run the demo and tests, use the source:
 
 ```bash
 git clone https://github.com/Malaya-kumar-swain/vismriti && cd vismriti
@@ -98,7 +100,7 @@ print(v.report("cust-asha"))                  # evidence pack for the DPO
 ## Use with AI agents (MCP)
 
 ```bash
-pip install -e ".[mcp]"
+pip install "vismriti[mcp]"
 VISMRITI_KEY=<32+ random characters> VISMRITI_PURPOSES=kyc,support python -m vismriti.mcp_server
 ```
 
@@ -121,7 +123,7 @@ Detectors work the same way: anything with `detect(text) -> list[Finding]` (Pres
 
 ## DPDP mapping
 
-See [docs/dpdp-mapping.md](docs/dpdp-mapping.md) for a section-by-section table of what is covered, what is partial and what is not yet. Limits are listed honestly in [docs/threat-model.md](docs/threat-model.md); for example, erasure covers stores, not data already baked into fine-tuned model weights.
+See [docs/dpdp-mapping.md](https://github.com/Malaya-kumar-swain/vismriti/blob/main/docs/dpdp-mapping.md) for a section-by-section table of what is covered, what is partial and what is not yet. Limits are listed honestly in [docs/threat-model.md](https://github.com/Malaya-kumar-swain/vismriti/blob/main/docs/threat-model.md); for example, erasure covers stores, not data already baked into fine-tuned model weights.
 
 ## Roadmap
 
@@ -141,4 +143,4 @@ Vismriti is an engineering aid, not legal advice. It helps you implement and evi
 
 Built by **Malaya Kumar Swain**, AI technology leader working on agentic and voice AI, responsible AI and data platforms. · [Portfolio](https://malayakumarswain.com) · [LinkedIn](https://www.linkedin.com/in/malayakumarswain)
 
-Licensed under [Apache 2.0](LICENSE).
+Licensed under [Apache 2.0](https://github.com/Malaya-kumar-swain/vismriti/blob/main/LICENSE).
