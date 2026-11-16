@@ -53,6 +53,20 @@ def verhoeff_check_digit(number: str) -> str:
     return str(_INV[c])
 
 
+_B36 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def gstin_valid(gstin: str) -> bool:
+    """True if a 15-character GSTIN has the correct check character (base-36 weighted checksum)."""
+    if len(gstin) != 15 or any(ch not in _B36 for ch in gstin):
+        return False
+    total = 0
+    for i, ch in enumerate(gstin[:14]):
+        product = _B36.index(ch) * (1 if i % 2 == 0 else 2)
+        total += product // 36 + product % 36
+    return _B36[(36 - total % 36) % 36] == gstin[14]
+
+
 # Devanagari, Bengali, Odia, Tamil, Telugu, Kannada, Gujarati, Gurmukhi digit blocks.
 _INDIC_ZEROS = [0x0966, 0x09E6, 0x0B66, 0x0BE6, 0x0C66, 0x0CE6, 0x0AE6, 0x0A66]
 _DIGIT_MAP = {z + i: str(i) for z in _INDIC_ZEROS for i in range(10)}
@@ -64,6 +78,32 @@ def normalise_digits(text: str) -> str:
     The mapping is one character to one character, so match offsets stay valid.
     """
     return text.translate(_DIGIT_MAP)
+
+
+# Invisible characters that copy-paste or attackers put inside identifiers.
+_ZERO_WIDTH = {0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF}
+# Cyrillic letters that look identical to Latin ones (used to slip PAN, IFSC or UPI IDs past filters).
+_LOOKALIKES = {
+    "А": "A", "В": "B", "С": "C", "Е": "E", "Н": "H", "К": "K", "М": "M", "О": "O", "Р": "P", "Т": "T", "Х": "X",
+    "а": "a", "с": "c", "е": "e", "о": "o", "р": "p", "х": "x", "у": "y",
+}
+_CHAR_MAP = {**{chr(k): v for k, v in _DIGIT_MAP.items()}, **_LOOKALIKES}
+
+
+def normalise(text: str) -> tuple[str, list[int]]:
+    """Undo common disguises before matching: Indic digits, look-alike letters and invisible characters.
+
+    Returns the cleaned text and, for each of its characters, the position in the original text,
+    so findings can be reported (and masked) at their true place in the original.
+    """
+    out: list[str] = []
+    index: list[int] = []
+    for i, ch in enumerate(text):
+        if ord(ch) in _ZERO_WIDTH:
+            continue
+        out.append(_CHAR_MAP.get(ch, ch))
+        index.append(i)
+    return "".join(out), index
 
 
 @dataclass(frozen=True)
@@ -84,7 +124,8 @@ _UPI_HANDLES = (
 )
 
 _PATTERNS: dict[str, re.Pattern[str]] = {
-    "AADHAAR": re.compile(r"(?<!\d)([2-9]\d{3})[ -]?(\d{4})[ -]?(\d{4})(?!\d)"),
+    # Groups may be separated by a space, a hyphen or a line break (numbers split across lines).
+    "AADHAAR": re.compile(r"(?<!\d)([2-9]\d{3})(?:[ -]|\r?\n)?(\d{4})(?:[ -]|\r?\n)?(\d{4})(?!\d)"),
     "PAN": re.compile(r"(?<![A-Z0-9])[A-Z]{3}[ABCFGHLJPT][A-Z]\d{4}[A-Z](?![A-Z0-9])"),
     "GSTIN": re.compile(r"(?<![A-Z0-9])\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z](?![A-Z0-9])"),
     "IFSC": re.compile(r"(?<![A-Z0-9])[A-Z]{4}0[A-Z0-9]{6}(?![A-Z0-9])"),
@@ -97,8 +138,8 @@ _PATTERNS: dict[str, re.Pattern[str]] = {
 class IndianPIIDetector:
     """Regex + checksum detector for Indian identifiers. No network, no model.
 
-    Aadhaar candidates must pass the Verhoeff checksum, which removes most false
-    positives on other 12-digit numbers. Overlapping matches are resolved in favour
+    Aadhaar candidates must pass the Verhoeff checksum and GSTIN candidates their check
+    character, which removes most false positives on look-alike numbers. Overlapping matches are resolved in favour
     of the earlier, longer, more specific type.
     """
 
@@ -108,13 +149,16 @@ class IndianPIIDetector:
         self.kinds = tuple(kinds) if kinds else self.ORDER
 
     def detect(self, text: str) -> list[Finding]:
-        norm = normalise_digits(text)
+        norm, index = normalise(text)
         found: list[Finding] = []
         for kind in self.kinds:
             for m in _PATTERNS[kind].finditer(norm):
                 if kind == "AADHAAR" and not verhoeff_valid("".join(m.groups())):
                     continue
-                found.append(Finding(kind, m.start(), m.end(), text[m.start() : m.end()]))
+                if kind == "GSTIN" and not gstin_valid(m.group(0)):
+                    continue
+                start, end = index[m.start()], index[m.end() - 1] + 1  # positions in the original text
+                found.append(Finding(kind, start, end, text[start:end]))
         found.sort(key=lambda f: (f.start, -(f.end - f.start)))
         kept: list[Finding] = []
         for f in found:
