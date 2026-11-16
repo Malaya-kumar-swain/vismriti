@@ -1,4 +1,4 @@
-from vismriti.pii import IndianPIIDetector, mask, normalise_digits, verhoeff_check_digit, verhoeff_valid
+from vismriti.pii import IndianPIIDetector, gstin_valid, mask, normalise, normalise_digits, verhoeff_check_digit, verhoeff_valid
 
 
 def aadhaar(base11: str) -> str:
@@ -30,7 +30,7 @@ def test_aadhaar_never_starts_with_0_or_1():
 
 
 def test_indian_identifiers_detected():
-    text = ("PAN ABCPR1234K, GSTIN 27ABCPR1234K1Z5, IFSC HDFC0001234, "
+    text = ("PAN ABCPR1234K, GSTIN 27ABCPR1234K1ZN, IFSC HDFC0001234, "
             "upi asha.rao@okhdfcbank, mail asha@example.in, call +91 98765 43210")
     kinds = [f.kind for f in IndianPIIDetector().detect(text)]
     assert kinds == ["PAN", "GSTIN", "IFSC", "UPI", "EMAIL", "PHONE_IN"]
@@ -59,3 +59,46 @@ def test_mask_replaces_and_keeps_text():
     masked, findings = mask("PAN ABCPR1234K, call 9876543210 today")
     assert masked == "PAN [PAN], call [PHONE_IN] today"
     assert len(findings) == 2
+
+
+def test_invisible_characters_do_not_hide_identifiers():
+    good = aadhaar("23456789012")
+    zw = "\u200b".join([good[:4], good[4:8], good[8:]])
+    text = f"Aadhaar {zw} and PAN ABCPR\u200b1234K."
+    found = IndianPIIDetector().detect(text)
+    assert [f.kind for f in found] == ["AADHAAR", "PAN"]
+    assert found[0].value == zw  # reported exactly as written, invisible characters included
+    masked, _ = mask(text)
+    assert masked == "Aadhaar [AADHAAR] and PAN [PAN]."
+
+
+def test_look_alike_letters_do_not_hide_identifiers():
+    sneaky_pan = "АBСPR1234K"  # Cyrillic A and C
+    sneaky_upi = "аsha.rao@okhdfcbank"  # Cyrillic a
+    found = IndianPIIDetector().detect(f"PAN {sneaky_pan}, UPI {sneaky_upi}")
+    assert [(f.kind, f.value) for f in found] == [("PAN", sneaky_pan), ("UPI", sneaky_upi)]
+
+
+def test_aadhaar_split_across_lines():
+    good = aadhaar("23456789012")
+    text = f"Aadhaar {good[:4]} {good[4:8]}\n{good[8:]} received"
+    found = IndianPIIDetector().detect(text)
+    assert [f.kind for f in found] == ["AADHAAR"] and "\n" in found[0].value
+
+
+def test_normalise_keeps_positions_of_the_original():
+    text = "a\u200bА१"
+    clean, index = normalise(text)
+    assert clean == "aA1" and index == [0, 2, 3]
+
+
+def test_plain_text_and_ordinary_numbers_unchanged():
+    assert IndianPIIDetector().detect("Invoice 1234 5678 9012 for order 42") == []  # fails the checksum
+    assert IndianPIIDetector().detect("Привет, это обычный текст") == []
+
+
+def test_gstin_needs_a_correct_check_character():
+    assert gstin_valid("27AAPFU0939F1ZV")  # widely published sample GSTIN
+    assert not gstin_valid("27AAPFU0939F1ZW")
+    assert [f.kind for f in IndianPIIDetector().detect("GSTIN 27AAPFU0939F1ZV")] == ["GSTIN"]
+    assert [f.kind for f in IndianPIIDetector().detect("GSTIN 27AAPFU0939F1ZW")] != ["GSTIN"]
