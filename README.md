@@ -28,7 +28,7 @@ Masking Aadhaar and PAN numbers is necessary but not sufficient, and several goo
 | 🧹 **Erasure that propagates** | One call withdraws consent, erases the person from the vector index, response cache, agent memory and logs, re-checks that nothing remains, and returns a **signed deletion certificate**. |
 | 🔍 **Right to access** | `access_summary()` lists purposes, consent history and items held per store, without exposing raw data. |
 | 📋 **Evidence pack** | Every allow, deny, withdrawal and erasure goes into a hash-chained log with a Markdown report mapped to DPDP sections. The log never stores raw personal data. |
-| 🇮🇳 **Indian PII masking** | Aadhaar (Verhoeff-checksum validated), PAN, GSTIN, IFSC, UPI, Indian mobile and email, including digits written in Devanagari, Odia, Bengali, Tamil, Telugu, Kannada, Gujarati and Gurmukhi. Bring your own detector through a one-method interface. |
+| 🇮🇳 **Indian PII masking** | Aadhaar (Verhoeff-checksum validated), PAN, GSTIN (check character validated), IFSC, UPI, Indian mobile and email, including digits written in Devanagari, Odia, Bengali, Tamil, Telugu, Kannada, Gujarati and Gurmukhi. Also catches identifiers disguised with invisible characters, look-alike letters or line breaks. Bring your own detector through a one-method interface. |
 | 🤖 **MCP server** | Agents can call `check_purpose`, `record_consent`, `retrieve`, `access_summary` and `erase_principal` before they touch personal data. |
 
 Zero runtime dependencies in the core. The MCP server is an optional extra.
@@ -120,6 +120,17 @@ v = Vismriti(purposes, key, extra_stores=[MyPgVectorStore(), MyRedisCache(), MyB
 ```
 
 Detectors work the same way: anything with `detect(text) -> list[Finding]` (Presidio, bharat-pii, an NER model) can replace the built-in one.
+
+## Tested with Nakli-Data
+
+[Nakli-Data](https://github.com/Malaya-kumar-swain/nakli-data) generates labelled fake Indian personal data written the tricky ways real users write it. On its 700-message benchmark (seed 7):
+
+| Version | Recall | Precision | Invisible characters | Look-alike letters | Split across lines |
+|---|---|---|---|---|---|
+| 0.1.0 | 81% | 100% | 18% | 30% | 0% |
+| 0.1.1 | 100% | 100% | 100% | 100% | 100% |
+
+The same 100% held on a fresh 1,400-message set (seed 99), and deliberately invalid Aadhaar, PAN, GSTIN, phone and UPI values were not flagged. Nakli-Data was built alongside these fixes, so treat this as a regression test, not proof of performance on real-world text.
 
 ## DPDP mapping
 
